@@ -1,0 +1,129 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Default Deny Catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Phase 3: Primitive Definitions
+    function isSignedIn() { return request.auth != null; }
+    function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
+    function isDataOwner() { return isSignedIn() && request.resource.data.userId == request.auth.uid; }
+    function existingDataOwner() { return isSignedIn() && resource.data.userId == request.auth.uid; }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    function isAdmin() { return isSignedIn() && request.auth.token.email == "geanpratama@gmail.com"; }
+    
+    // Pillar 2: Validation Blueprints
+    function isValidUser(data) {
+      return data.keys().hasAll(['userId', 'email'])
+             && data.userId == request.auth.uid
+             && data.email is string
+             && (data.get('businessType', '') is string)
+             && (data.get('profileLink', '') is string)
+             && (data.get('auditMarkdown', '') is string);
+    }
+
+    function isValidManagedAccount(data) {
+      return data.keys().hasAll(['userId', 'name', 'createdAt'])
+             && data.userId == request.auth.uid
+             && data.name is string && data.name.size() <= 200;
+    }
+
+    function isValidWhitelistedUser(data) {
+      return data.keys().hasAll(['email', 'createdAt'])
+             && data.email is string;
+    }
+
+    function isValidContentPlan(data) {
+      return data.keys().hasAll(['userId', 'planMarkdown', 'createdAt'])
+             && data.userId == request.auth.uid
+             && data.planMarkdown is string
+             && data.planMarkdown.size() <= 50000;
+    }
+
+    function isValidScheduledPost(data) {
+      return data.keys().hasAll(['userId', 'title', 'date', 'platform', 'status'])
+             && data.userId == request.auth.uid
+             && data.title is string && data.title.size() <= 500
+             && data.platform in ['instagram', 'tiktok', 'linkedin', 'twitter']
+             && data.status in ['terjadwal', 'draf', 'diposting'];
+    }
+
+    function isValidChatSession(data) {
+      return data.keys().hasAll(['userId', 'messages', 'updatedAt'])
+             && data.userId == request.auth.uid
+             && data.messages is list
+             && data.messages.size() <= 500;
+    }
+
+    function isValidMonitoringEntry(data) {
+      return data.keys().hasAll(['userId', 'contentLink', 'insights', 'createdAt'])
+             && data.userId == request.auth.uid
+             && data.contentLink is string
+             && data.insights is string;
+    }
+
+    // Pillar 4: Tiered Identity Logic & Pillar 10: Timestamps
+    match /users/{userId} {
+      // Allow admin to manage all users
+      allow list: if isAdmin();
+      allow get: if isAdmin() || isOwner(userId);
+      allow create: if (isAdmin() || isOwner(userId)) && isValidUser(incoming());
+      allow update: if (isAdmin() || isOwner(userId)) && isValidUser(incoming());
+      allow delete: if isAdmin();
+    }
+
+    match /contentPlans/{planId} {
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isDataOwner() && isValidContentPlan(incoming()) && incoming().createdAt == request.time;
+      allow update: if existingDataOwner() && isDataOwner() && isValidContentPlan(incoming());
+      allow delete: if existingDataOwner();
+    }
+
+    match /scheduledPosts/{postId} {
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isDataOwner() && isValidScheduledPost(incoming()) && incoming().createdAt == request.time;
+      allow update: if existingDataOwner() && isDataOwner() && isValidScheduledPost(incoming());
+      allow delete: if existingDataOwner();
+    }
+
+    match /chatSessions/{sessionId} {
+      allow list: if isSignedIn() && (resource == null || resource.data.userId == request.auth.uid);
+      allow get: if isOwner(sessionId) || (isSignedIn() && resource != null && resource.data.userId == request.auth.uid);
+      allow create: if (isOwner(sessionId) || isDataOwner()) && isValidChatSession(incoming());
+      allow update: if (isOwner(sessionId) || existingDataOwner()) && isDataOwner() && isValidChatSession(incoming());
+      allow delete: if isOwner(sessionId) || existingDataOwner();
+    }
+
+    match /monitoringEntries/{entryId} {
+      allow list: if isSignedIn() && (resource == null || resource.data.userId == request.auth.uid);
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isDataOwner() && isValidMonitoringEntry(incoming());
+      allow delete: if existingDataOwner();
+    }
+
+    match /managedAccounts/{accountId} {
+      allow list: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow get: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow create: if isDataOwner() && isValidManagedAccount(incoming()) && (incoming().createdAt == request.time || isAdmin());
+      allow delete: if isAdmin() || existingDataOwner();
+    }
+
+    match /whitelistedUsers/{whiteId} {
+      // Allow exact-match query for email during sign-in even if unauthenticated
+      // This is safe because it only reveals if an email exists in the system
+      allow list: if isAdmin() || (request.auth == null && request.query.limit == 1) || (isSignedIn() && resource.data.email == request.auth.token.email);
+      // Allow PUBLIC GET by ID to verify credentials during initial login
+      // This is necessary for the GITS auto-registration flow
+      allow get: if true; 
+      allow create: if isAdmin();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+  }
+}

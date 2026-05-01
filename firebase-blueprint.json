@@ -1,0 +1,134 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "Stores user profile and business information.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "email": { "type": "string" },
+        "businessType": { "type": "string" },
+        "profileLink": { "type": "string" },
+        "auditData": { "type": "object" },
+        "auditMarkdown": { "type": "string" },
+        "onboardingComplete": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "email"]
+    },
+    "ContentPlan": {
+      "title": "Content Plan",
+      "description": "Stores generated content plans for a user.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "planMarkdown": { "type": "string" },
+        "approved": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "planMarkdown", "createdAt"]
+    },
+    "ScheduledPost": {
+      "title": "Scheduled Post",
+      "description": "Represents a single post in the calendar.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "date": { "type": "string", "format": "date-time" },
+        "platform": { "type": "string" },
+        "status": { "type": "string", "enum": ["terjadwal", "draf", "diposting"] },
+        "time": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "title", "date", "platform", "status"]
+    },
+    "ChatSession": {
+      "title": "Chat Session",
+      "description": "Stores conversation history between user and AI specialist.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "messages": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "role": { "type": "string", "enum": ["user", "assistant"] },
+              "content": { "type": "string" },
+              "timestamp": { "type": "string", "format": "date-time" }
+            }
+          }
+        },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "messages", "updatedAt"]
+    },
+    "MonitoringEntry": {
+      "title": "Monitoring Entry",
+      "description": "Stores performance tracking for a specific piece of content.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "contentLink": { "type": "string" },
+        "insights": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "contentLink", "insights", "createdAt"]
+    },
+    "ManagedAccount": {
+      "title": "Managed Account",
+      "description": "Clients or social media accounts managed by the auditor.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "link": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "name", "createdAt"]
+    },
+    "WhitelistedUser": {
+      "title": "Whitelisted User",
+      "description": "Emails allowed to register in the GITS system.",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" },
+        "addedBy": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["email", "createdAt"]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": "User",
+      "description": "Main user document."
+    },
+    "contentPlans/{planId}": {
+      "schema": "ContentPlan",
+      "description": "User generated content plans."
+    },
+    "scheduledPosts/{postId}": {
+      "schema": "ScheduledPost",
+      "description": "Posts scheduled in the calendar."
+    },
+    "chatSessions/{sessionId}": {
+      "schema": "ChatSession",
+      "description": "AI specialist conversation logs."
+    },
+    "monitoringEntries/{entryId}": {
+      "schema": "MonitoringEntry",
+      "description": "Tracked content performance."
+    },
+    "managedAccounts/{accountId}": {
+      "schema": "ManagedAccount",
+      "description": "Client accounts being optimized."
+    },
+    "whitelistedUsers/{whiteId}": {
+      "schema": "WhitelistedUser",
+      "description": "Authorized emails for GITS registration."
+    }
+  }
+}
