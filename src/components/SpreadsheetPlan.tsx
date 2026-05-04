@@ -312,7 +312,7 @@ export function SpreadsheetPlan({
                 <th className="p-4 border-r border-slate-50 w-[110px]">Tanggal</th>
                 <th className="p-4 border-r border-slate-50 w-[130px]">Format</th>
                 <th className="p-4 border-r border-slate-50 w-[140px]">Kategori</th>
-                <th className="p-4 border-r border-slate-50 min-w-[350px]">Rencana Kreatif</th>
+                <th className="p-4 border-r border-slate-50 w-[550px]">Rencana Kreatif</th>
                 <th className="p-4 border-r border-slate-50 w-[180px]">Referensi</th>
                 <th className="p-4 border-r border-slate-50 w-[130px]">Post Date</th>
                 <th className="p-4 border-r border-slate-50 w-[100px]">PIC</th>
@@ -373,7 +373,7 @@ export function SpreadsheetPlan({
                   </td>
                   <td className="p-0 border-r border-slate-50 align-top">
                     <textarea 
-                      className="w-full p-4 bg-transparent text-slate-700 placeholder:text-slate-300 focus:bg-white focus:ring-1 focus:ring-indigo-100 focus:outline-none resize-y min-h-[60px] leading-relaxed font-medium" 
+                      className="w-full p-4 bg-transparent text-slate-700 placeholder:text-slate-300 focus:bg-white focus:ring-1 focus:ring-indigo-100 focus:outline-none resize min-h-[80px] leading-relaxed font-medium transition-all" 
                       value={row.briefPlan}
                       placeholder="Input brief konten..."
                       onChange={(e) => handleUpdate(idx, 'briefPlan', e.target.value)}
