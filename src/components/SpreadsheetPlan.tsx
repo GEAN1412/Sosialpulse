@@ -22,7 +22,7 @@ import {
   CheckCircle2,
   XCircle
 } from "lucide-react";
-import { addDays, format, parse } from "date-fns";
+import { addDays, format, parse, isValid } from "date-fns";
 import { id } from "date-fns/locale";
 import { toast } from "sonner";
 import { 
@@ -100,7 +100,7 @@ export function SpreadsheetPlan({
   businessName?: string;
   config?: SpreadsheetConfig;
   title?: string;
-  onChange?: (newData: SpreadsheetRow[]) => void;
+  onChange?: (newData: SpreadsheetRow[] | ((prev: SpreadsheetRow[]) => SpreadsheetRow[])) => void;
   onConfigChange?: (newConfig: SpreadsheetConfig) => void;
   onTitleChange?: (newTitle: string) => void;
   onUpload?: (idx: number, files: File | File[]) => void;
@@ -124,9 +124,20 @@ export function SpreadsheetPlan({
 
   const handleUpdate = (idx: number, field: keyof SpreadsheetRow, value: string) => {
     if (!onChange) return;
-    const newData = [...data];
-    newData[idx] = { ...newData[idx], [field]: value };
-    onChange(newData);
+    onChange((prev) => {
+      const newData = [...prev];
+      newData[idx] = { ...newData[idx], [field]: value };
+      return newData;
+    });
+  };
+
+  const handleMultipleUpdate = (idx: number, updates: Partial<SpreadsheetRow>) => {
+    if (!onChange) return;
+    onChange((prev) => {
+      const newData = [...prev];
+      newData[idx] = { ...newData[idx], ...updates };
+      return newData;
+    });
   };
 
   const addRow = () => {
@@ -253,10 +264,14 @@ export function SpreadsheetPlan({
 
         <div className="flex gap-2 ml-auto">
           <Dialog>
-            <DialogTrigger render={<Button variant="outline" size="sm" className="text-slate-600 border-slate-200 shadow-sm bg-white hover:bg-slate-50" />}>
-              <Settings2 className="w-4 h-4 mr-2" />
-              <span className="hidden sm:inline">Settings</span>
-            </DialogTrigger>
+            <DialogTrigger 
+              render={
+                <Button variant="outline" size="sm" className="text-slate-600 border-slate-200 shadow-sm bg-white hover:bg-slate-50">
+                  <Settings2 className="w-4 h-4 mr-2" />
+                  <span className="hidden sm:inline">Settings</span>
+                </Button>
+              }
+            />
             <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Kustomisasi Spreadsheet</DialogTitle>
@@ -287,6 +302,7 @@ export function SpreadsheetPlan({
               idx={idx} 
               config={config} 
               onUpdate={handleUpdate} 
+              onMultipleUpdate={handleMultipleUpdate}
               onDelete={deleteRow} 
               onUpload={onUpload} 
               onRemoveAsset={handleRemoveAsset}
@@ -389,20 +405,39 @@ export function SpreadsheetPlan({
                   </td>
                   <td className="p-0 border-r border-slate-50 align-top">
                     <Popover>
-                      <PopoverTrigger render={<button className="w-full p-4 h-full bg-transparent text-center font-black text-slate-900 group-hover:text-indigo-600 focus:bg-white hover:bg-slate-50/80 outline-none transition-colors" />}>
-                        {row.postDate ? format(parse(row.postDate, "MMMM d, yyyy", new Date()), "dd/MM/yy") : "-"}
-                      </PopoverTrigger>
+                      <PopoverTrigger 
+                        render={
+                          <button 
+                            type="button"
+                            className="w-full p-4 h-full bg-transparent text-center font-black text-slate-900 group-hover:text-indigo-600 focus:bg-white hover:bg-slate-50/80 outline-none transition-colors cursor-pointer"
+                          >
+                            {(() => {
+                              if (!row.postDate) return "-";
+                              try {
+                                const d = parse(row.postDate, "MMMM d, yyyy", new Date());
+                                return isValid(d) ? format(d, "dd/MM/yy") : "-";
+                              } catch { return "-"; }
+                            })()}
+                          </button>
+                        }
+                      />
                       <PopoverContent className="w-auto p-0 shadow-2xl border-indigo-100" align="start">
                         <Calendar
                           mode="single"
+                          locale={id}
                           selected={(() => {
-                            try { return parse(row.postDate, "MMMM d, yyyy", new Date()); } 
-                            catch { return new Date(); }
+                            if (!row.postDate) return new Date();
+                            try {
+                              const d = parse(row.postDate, "MMMM d, yyyy", new Date());
+                              return isValid(d) ? d : new Date();
+                            } catch { return new Date(); }
                           })()}
                           onSelect={(date) => {
                             if (date) {
-                              handleUpdate(idx, 'postDate', format(date, "MMMM d, yyyy"));
-                              handleUpdate(idx, 'date', format(date, "dd MMMM"));
+                              handleMultipleUpdate(idx, {
+                                postDate: format(date, "MMMM d, yyyy"),
+                                date: format(date, "dd MMMM", { locale: id })
+                              });
                             }
                           }}
                         />
@@ -521,7 +556,7 @@ export function SpreadsheetPlan({
 }
 
 // MOBILE COMPONENT
-function MobileCard({ row, idx, config, onUpdate, onDelete, onUpload, onRemoveAsset, onDownload, onPreview }: any) {
+function MobileCard({ row, idx, config, onUpdate, onMultipleUpdate, onDelete, onUpload, onRemoveAsset, onDownload, onPreview }: any) {
   return (
     <Card className="border border-slate-200 shadow-[0_4px_12px_-4px_rgba(0,0,0,0.05)] overflow-hidden animate-in fade-in slide-in-from-right-4 duration-300" style={{ animationDelay: `${idx * 50}ms` }}>
       <CardHeader className="p-4 bg-white border-b border-slate-50 flex flex-row items-center justify-between space-y-0">
@@ -551,9 +586,13 @@ function MobileCard({ row, idx, config, onUpdate, onDelete, onUpload, onRemoveAs
         </div>
         
         <DropdownMenu>
-          <DropdownMenuTrigger render={<Button variant="ghost" size="icon" className="h-9 w-9 text-slate-300 hover:text-slate-900 hover:bg-slate-50 rounded-xl" />}>
-            <MoreVertical size={18} />
-          </DropdownMenuTrigger>
+          <DropdownMenuTrigger 
+            render={
+              <Button variant="ghost" size="icon" className="h-9 w-9 text-slate-300 hover:text-slate-900 hover:bg-slate-50 rounded-xl">
+                <MoreVertical size={18} />
+              </Button>
+            }
+          />
           <DropdownMenuContent align="end" className="w-[180px] p-2 rounded-xl shadow-xl border-slate-100">
             <DropdownMenuItem onClick={() => {}} className="rounded-lg font-bold text-xs">
               <FileText className="w-4 h-4 mr-2 text-slate-400" /> Lihat Detail
@@ -566,6 +605,41 @@ function MobileCard({ row, idx, config, onUpdate, onDelete, onUpload, onRemoveAs
       </CardHeader>
 
       <CardContent className="p-5 space-y-5 bg-slate-50/30">
+        <div className="grid grid-cols-2 gap-4">
+           <div className="space-y-1.5">
+             <label className="text-[9px] font-black text-slate-400 uppercase tracking-[0.1em]">Format</label>
+             <Select value={row.type} onValueChange={(val) => onUpdate(idx, 'type', val)}>
+               <SelectTrigger className="h-9 text-[11px] font-bold bg-white border-slate-100 rounded-xl px-3 uppercase">
+                 <SelectValue />
+               </SelectTrigger>
+               <SelectContent className="rounded-xl">
+                 {config.types.map((t: string) => <SelectItem key={t} value={t} className="text-xs font-bold uppercase">{t}</SelectItem>)}
+               </SelectContent>
+             </Select>
+           </div>
+           <div className="space-y-1.5">
+             <label className="text-[9px] font-black text-slate-400 uppercase tracking-[0.1em]">Kategori</label>
+             <Select value={row.detailType} onValueChange={(val) => onUpdate(idx, 'detailType', val)}>
+               <SelectTrigger className="h-9 text-[11px] font-bold bg-white border-slate-100 rounded-xl px-3">
+                 <SelectValue />
+               </SelectTrigger>
+               <SelectContent className="rounded-xl">
+                 {config.detailTypes.map((dt: string) => <SelectItem key={dt} value={dt} className="text-xs font-bold">{dt}</SelectItem>)}
+               </SelectContent>
+             </Select>
+           </div>
+        </div>
+
+        <div className="space-y-1.5">
+           <label className="text-[9px] font-black text-slate-400 uppercase tracking-[0.1em]">Reference Link</label>
+           <Input 
+             className="text-xs bg-white border-slate-100 rounded-xl h-9 font-medium"
+             value={row.referenceLink || ''}
+             onChange={(e) => onUpdate(idx, 'referenceLink', e.target.value)}
+             placeholder="https://..."
+           />
+        </div>
+
         <div className="space-y-1.5">
            <label className="text-[9px] font-black text-slate-400 uppercase tracking-[0.1em]">Rencana Kreatif</label>
            <Textarea 
@@ -629,18 +703,58 @@ function MobileCard({ row, idx, config, onUpdate, onDelete, onUpload, onRemoveAs
 
         <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-100/80">
            <div className="space-y-1.5">
-             <label className="text-[9px] font-black text-slate-400 uppercase tracking-[0.1em] flex items-center gap-1"><Clock size={10} /> Jam Post</label>
+             <label className="text-[9px] font-black text-slate-400 uppercase tracking-[0.1em] flex items-center gap-1"><CalendarIcon size={10} /> Post Date</label>
+             <Popover>
+               <PopoverTrigger 
+                 render={
+                   <Button variant="outline" className="h-9 w-full text-[11px] font-bold bg-white border-slate-100 rounded-xl px-3 justify-between">
+                     {(() => {
+                       if (!row.postDate) return "Pilih Tanggal";
+                       try {
+                         const d = parse(row.postDate, "MMMM d, yyyy", new Date());
+                         return isValid(d) ? format(d, "dd/MM/yy") : "Pilih Tanggal";
+                       } catch { return "Pilih Tanggal"; }
+                     })()}
+                     <CalendarIcon className="w-3 h-3 text-slate-400" />
+                   </Button>
+                 }
+               />
+               <PopoverContent className="w-auto p-0 shadow-xl border-slate-100" align="center">
+                 <Calendar
+                    mode="single"
+                    locale={id}
+                    selected={(() => {
+                      if (!row.postDate) return new Date();
+                      try {
+                        const d = parse(row.postDate, "MMMM d, yyyy", new Date());
+                        return isValid(d) ? d : new Date();
+                      } catch { return new Date(); }
+                    })()}
+                    onSelect={(date) => {
+                      if (date) {
+                        onMultipleUpdate(idx, {
+                          postDate: format(date, "MMMM d, yyyy"),
+                          date: format(date, "dd MMMM", { locale: id })
+                        });
+                      }
+                    }}
+                 />
+               </PopoverContent>
+             </Popover>
+           </div>
+           <div className="space-y-1.5">
+             <label className="text-[9px] font-black text-slate-400 uppercase tracking-[0.1em] flex items-center gap-1"><CheckCircle2 size={10} /> Status</label>
              <Select value={row.status} onValueChange={(val) => onUpdate(idx, 'status', val)}>
-               <SelectTrigger className="h-9 text-[11px] font-bold bg-white border-slate-100 rounded-xl px-3">
+               <SelectTrigger className="h-9 text-[11px] font-bold bg-white border-slate-100 rounded-xl px-3 uppercase tracking-tighter">
                  <SelectValue />
                </SelectTrigger>
                <SelectContent className="rounded-xl">
-                 {config.statuses.map((s: string) => <SelectItem key={s} value={s} className="text-xs font-bold">{s}</SelectItem>)}
+                 {config.statuses.map((s: string) => <SelectItem key={s} value={s} className="text-xs font-bold uppercase">{s}</SelectItem>)}
                </SelectContent>
              </Select>
            </div>
-           <div className="space-y-1.5">
-             <label className="text-[9px] font-black text-slate-400 uppercase tracking-[0.1em] flex items-center gap-1"><UserIcon size={10} /> PIC</label>
+           <div className="space-y-1.5 col-span-2">
+             <label className="text-[9px] font-black text-slate-400 uppercase tracking-[0.1em] flex items-center gap-1"><UserIcon size={10} /> Penanggung Jawab (PIC)</label>
              <Select value={row.pic || 'Rindra'} onValueChange={(val) => onUpdate(idx, 'pic', val)}>
                <SelectTrigger className="h-9 text-[11px] font-bold bg-white border-slate-100 rounded-xl px-3">
                  <SelectValue />
