@@ -282,24 +282,28 @@ export const GeminiService = {
 
   async analyzeLink(link: string) {
     const prompt = `
-      Analisa performa/potensi konten media sosial dari link berikut: ${link}
+      Analisa performa strategi dari postingan media sosial berikut: ${link}
       
-      Tugas:
-      1. Berikan estimasi metrik (Engagement, Reach, Viralitas).
-      2. Analisa Hook, Visual, dan Konten.
-      3. Berikan saran perbaikan (Improvement).
-      4. Tentukan apakah konten ini 'Trending' atau 'Stable'.
+      TUGAS:
+      1. Identifikasi Platform.
+      2. Berikan Analisa Strategis (Visual, Hook, Copywriting).
+      3. Prediksi Metrik (Engagement Rate, Potensi Viralitas 1-100).
+      4. Action Plan: 3 saran perbaikan konkret agar performanya lebih maksimal.
       
-      Gunakan Bahasa Indonesia dan tunjukkan metrik dalam format yang menarik.
-      Output dalam Markdown.
+      Gunakan Bahasa Indonesia. Tampilkan dalam format Markdown yang sangat rapi.
     `;
 
-    const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-    });
+    try {
+      const response = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+      });
 
-    return response.text;
+      return response.text;
+    } catch (error) {
+      console.error("Gemini analyzeLink error:", error);
+      throw error;
+    }
   },
 
   async chatWithSpecialist(params: { input: string, businessType: string, auditMarkdown: string, history: any[] }) {

@@ -131,11 +131,11 @@ export function ProfileAuditor({
     try {
       const businessName = auditData?.brandIdentity || "User Business";
       const planRows = await GeminiService.generateSpreadsheetPlan(result, businessName);
-      setSpreadsheetData(planRows);
+      // setSpreadsheetData(planRows); // No longer needed here
       
       const jsonPlan = JSON.stringify(planRows);
       onPlanGenerated(jsonPlan);
-      toast.success("Spreadsheet Content Plan berhasil dibuat!");
+      toast.success("Spreadsheet Content Plan berhasil dibuat! Buka menu 'Spreadsheet Konten' untuk melihat detail.");
     } catch (error) {
       console.error(error);
       toast.error("Gagal membuat content plan.");
@@ -342,38 +342,20 @@ export function ProfileAuditor({
                     <ReactMarkdown>{result}</ReactMarkdown>
                   </div>
 
-                  {(spreadsheetData || contentPlan) && (
+                  {contentPlan && (
                     <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
                       <div className="flex items-center justify-between">
                         <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
                           <Clock className="w-5 h-5 text-indigo-600" />
-                          {spreadsheetData ? "Content Plan Spreadsheet" : "Rencana Konten 7 Hari"}
+                          Rencana Konten 7 Hari
                         </h3>
                         <div className="flex gap-2">
-                          <Button 
-                            size="sm" 
-                            variant="outline" 
-                            className="text-slate-600"
-                            onClick={downloadCSV}
-                          >
-                            <Download className="w-4 h-4 mr-2" />
-                            Export CSV
-                          </Button>
-                          <Button 
-                            size="sm" 
-                            className="bg-emerald-600 hover:bg-emerald-700"
-                            onClick={handleApprovePlan}
-                          >
-                            <CheckCircle2 className="w-4 h-4 mr-2" />
-                            Approve & Jadwalkan
-                          </Button>
                           <Button 
                             size="sm" 
                             variant="ghost" 
                             className="text-slate-500"
                             onClick={() => {
                               setContentPlan(null);
-                              setSpreadsheetData(null);
                             }}
                           >
                             Tutup Plan
@@ -381,26 +363,9 @@ export function ProfileAuditor({
                         </div>
                       </div>
                       
-                      {spreadsheetData ? (
-                        <div className="w-full">
-                           <SpreadsheetPlan 
-                            data={spreadsheetData} 
-                            businessName={auditData?.brandIdentity} 
-                            config={spreadsheetConfig}
-                            title={spreadsheetTitle}
-                            onChange={(newData) => {
-                              setSpreadsheetData(newData);
-                              onPlanGenerated(JSON.stringify(newData));
-                            }}
-                            onConfigChange={onConfigChange}
-                            onTitleChange={onTitleChange}
-                           />
-                        </div>
-                      ) : (
-                        <div className="prose prose-slate max-w-none bg-indigo-50/30 p-6 rounded-xl border border-indigo-100 overflow-y-auto max-h-[400px]">
-                          <ReactMarkdown>{contentPlan!}</ReactMarkdown>
-                        </div>
-                      )}
+                      <div className="prose prose-slate max-w-none bg-indigo-50/30 p-6 rounded-xl border border-indigo-100 overflow-y-auto max-h-[400px]">
+                        <ReactMarkdown>{contentPlan!}</ReactMarkdown>
+                      </div>
                     </div>
                   )}
                 </div>

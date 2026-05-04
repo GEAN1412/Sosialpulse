@@ -89,6 +89,33 @@
       },
       "required": ["userId", "name", "createdAt"]
     },
+    "MonthlyPlan": {
+      "title": "Monthly Content Plan",
+      "description": "Stores content plan for a specific month.",
+      "type": "object",
+      "properties": {
+        "plan": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["plan"]
+    },
+    "StockFootage": {
+      "title": "Stock Footage",
+      "description": "User uploaded assets for content creation.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "originalName": { "type": "string" },
+        "url": { "type": "string" },
+        "folder": { "type": "string" },
+        "type": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "cloudinaryId": { "type": "string" }
+      },
+      "required": ["userId", "name", "url", "folder"]
+    },
     "WhitelistedUser": {
       "title": "Whitelisted User",
       "description": "Emails allowed to register in the GITS system.",
@@ -105,6 +132,14 @@
     "users/{userId}": {
       "schema": "User",
       "description": "Main user document."
+    },
+    "users/{userId}/monthlyPlans/{periodId}": {
+      "schema": "MonthlyPlan",
+      "description": "User monthly content plans."
+    },
+    "stockFootage/{footageId}": {
+      "schema": "StockFootage",
+      "description": "User uploaded stock footage."
     },
     "contentPlans/{planId}": {
       "schema": "ContentPlan",

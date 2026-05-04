@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../lib/firebase';
 import { collection, query, where, getDocs, addDoc, serverTimestamp, deleteDoc, doc, onSnapshot } from 'firebase/firestore';
+import { handleFirestoreError, OperationType } from '../lib/firestoreUtils';
 import { useAuth } from '../lib/AuthContext';
 import { GeminiService } from '../lib/geminiService';
 import { Button } from "@/components/ui/button";
@@ -23,6 +24,7 @@ export function ContentMonitoring() {
     
     const q = query(collection(db, 'monitoringEntries'), where('userId', '==', user.uid));
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      console.log("Monitoring entries updated, count:", querySnapshot.size);
       const data = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setEntries(data.sort((a: any, b: any) => {
         const dateA = a.createdAt?.seconds || 0;
@@ -31,7 +33,7 @@ export function ContentMonitoring() {
       }));
       setFetching(false);
     }, (error) => {
-      console.error(error);
+      handleFirestoreError(error, OperationType.LIST, 'monitoringEntries');
       setFetching(false);
     });
 
@@ -40,6 +42,8 @@ export function ContentMonitoring() {
 
   const handleMonitor = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log("Handle monitor triggered");
+    
     if (!link.trim() || !user) {
       toast.error("Silakan masukkan link terlebih dahulu");
       return;
@@ -49,7 +53,9 @@ export function ContentMonitoring() {
     const toastId = toast.loading("AI sedang menganalisa performa konten...");
     
     try {
+      console.log("Initiating analysis for:", link);
       const insights = await GeminiService.analyzeLink(link);
+      console.log("Analysis completed");
       
       if (!insights) throw new Error("Gagal mendapatkan analisa dari AI.");
 
@@ -60,24 +66,39 @@ export function ContentMonitoring() {
         createdAt: serverTimestamp()
       };
 
+      console.log("Saving to Firestore...");
       await addDoc(collection(db, 'monitoringEntries'), entry);
+      console.log("Saved successfully");
 
       setLink('');
       toast.success("Konten berhasil dianalisa!", { id: toastId });
     } catch (error: any) {
-      console.error(error);
-      toast.error("Gagal menganalisa konten: " + (error.message || "Unknown error"), { id: toastId });
+      console.error("Analysis process error:", error);
+      // If it's a firestore error, handle it specifically
+      if (error.code && error.code.startsWith('permission-')) {
+        handleFirestoreError(error, OperationType.WRITE, 'monitoringEntries');
+      } else {
+        toast.error("Gagal menganalisa konten: " + (error.message || "Gagal menghubungi AI"), { id: toastId });
+      }
     } finally {
       setLoading(false);
     }
   };
 
   const deleteEntry = async (id: string) => {
+    if (!user) {
+      toast.error("Anda harus masuk untuk menghapus.");
+      return;
+    }
+    console.log("Attempting to delete entry:", id, "for user:", user.uid);
+    if (!confirm("Hapus analisa ini?")) return;
     try {
       await deleteDoc(doc(db, 'monitoringEntries', id));
+      console.log("Delete successful for id:", id);
       toast.success("Catatan dihapus");
     } catch (error) {
-      toast.error("Gagal menghapus");
+      console.error("Delete failed for id:", id, error);
+      handleFirestoreError(error, OperationType.DELETE, `monitoringEntries/${id}`);
     }
   };
 
@@ -108,7 +129,7 @@ export function ContentMonitoring() {
                 required
               />
             </div>
-            <Button className="bg-indigo-600 hover:bg-indigo-700 h-10 px-6" disabled={loading}>
+            <Button type="submit" id="analyze-progress-button" className="bg-indigo-600 hover:bg-indigo-700 h-10 px-6" disabled={loading}>
               {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <TrendingUp className="w-4 h-4 mr-2" />}
               Analisa Progress
             </Button>
@@ -147,7 +168,7 @@ export function ContentMonitoring() {
                 <Button 
                   size="icon" 
                   variant="ghost" 
-                  className="text-slate-400 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="text-slate-400 hover:text-rose-500 transition-opacity"
                   onClick={() => deleteEntry(entry.id)}
                 >
                   <Trash2 size={16} />
